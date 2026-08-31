@@ -1,0 +1,25 @@
+name: Deploy to Bluehost
+
+on:
+  push:
+    branches: [ "main" ] 
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: 50.6.34.32
+          username: gseiwpmy
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd public_html/test_app/eltarek_price
+            git pull origin main
+            ea-php84 composer.phar install --optimize-autoloader --no-dev
+            ea-php84 artisan config:clear
+            ea-php84 artisan cache:clear
