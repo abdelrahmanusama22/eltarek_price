@@ -37,16 +37,22 @@ class BrandResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = parent::getEloquentQuery();
+        $user = auth()->user();
 
-        if (auth()->user()?->isBrandManager()) {
-            $brandIds = auth()->user()->brands()->pluck('id')->toArray();
+        // Bypass scoping for super admins
+        if ($user && $user->hasRole('super_admin')) {
+            return $query;
+        }
 
-            if (empty($brandIds)) {
-                // Brand Manager with no assigned brands sees nothing
-                $query->whereRaw('0 = 1');
-            } else {
-                $query->whereIn('id', $brandIds);
-            }
+        // Scope by assigned brands
+        $assignedBrandIds = $user ? $user->brands->pluck('id')->toArray() : [];
+        
+        if (!empty($assignedBrandIds)) {
+            // Here we are filtering the Brand model itself by its ID
+            $query->whereIn('id', $assignedBrandIds);
+        } else {
+            // Security fallback: if no brands assigned, show nothing
+            $query->whereRaw('0 = 1');
         }
 
         return $query;

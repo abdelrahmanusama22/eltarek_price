@@ -47,24 +47,25 @@ class PriceEntryResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
+        $user = auth()->user();
 
-        // 1. Brand Manager Scope
-        if (auth()->user()?->isBrandManager()) {
-            $brandIds = auth()->user()->brands()->pluck('id')->toArray();
-
-            if (empty($brandIds)) {
-                // Brand Manager with no assigned brands sees nothing
-                $query->whereRaw('0 = 1');
-            } else {
-                $query->whereIn('brand_id', $brandIds);
-            }
+        // Bypass scoping for super admins
+        if ($user && $user->hasRole('super_admin')) {
+            return $query;
         }
 
-        // 2. Hide 'STOP' entries for everyone except the super_admin
-        // (Adjust 'super_admin' if your top-level role name is slightly different)
-        if (! auth()->user()?->hasRole('super_admin')) {
-            $query->where('hold_status', '!=', 'STOP');
+        // Scope by assigned brands
+        $assignedBrandIds = $user ? $user->brands->pluck('id')->toArray() : [];
+        
+        if (!empty($assignedBrandIds)) {
+            $query->whereIn('brand_id', $assignedBrandIds);
+        } else {
+            // User with no assigned brands sees nothing
+            $query->whereRaw('0 = 1');
         }
+
+        // Hide 'STOP' entries for everyone except the super_admin
+        $query->where('hold_status', '!=', 'STOP');
 
         return $query;
     }

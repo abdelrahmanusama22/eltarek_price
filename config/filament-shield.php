@@ -145,6 +145,7 @@ return [
         'methods' => [
             'viewAny', 'view', 'create', 'update', 'delete', 'deleteAny', 'restore',
             'forceDelete', 'forceDeleteAny', 'restoreAny', 'replicate', 'reorder',
+            'manage_crm_id',
         ],
         'single_parameter_methods' => [
             'viewAny',

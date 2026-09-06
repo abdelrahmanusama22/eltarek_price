@@ -45,16 +45,21 @@ class CarResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
+        $user = auth()->user();
 
-        if (auth()->user()?->isBrandManager()) {
-            $brandIds = auth()->user()->brands()->pluck('id')->toArray();
+        // Bypass scoping for super admins
+        if ($user && $user->hasRole('super_admin')) {
+            return $query;
+        }
 
-            if (empty($brandIds)) {
-                // Brand Manager with no assigned brands sees nothing
-                $query->whereRaw('0 = 1');
-            } else {
-                $query->whereIn('brand_id', $brandIds);
-            }
+        // Scope by assigned brands
+        $assignedBrandIds = $user ? $user->brands->pluck('id')->toArray() : [];
+
+        if (!empty($assignedBrandIds)) {
+            $query->whereIn('brand_id', $assignedBrandIds);
+        } else {
+            // User with no assigned brands sees nothing
+            $query->whereRaw('0 = 1');
         }
 
         return $query;
@@ -68,7 +73,8 @@ class CarResource extends Resource
                     ->label('CRM Car ID')
                     ->nullable()
                     ->unique(ignoreRecord: true)
-                    ->helperText('External CRM ID. Leave blank if not synced yet.'),
+                    ->helperText('External CRM ID. Leave blank if not synced yet.')
+                    ->visible(fn () => auth()->user()?->can('manage_crm_id_car')),
 
                 Forms\Components\Select::make('brand_id')
                     ->label('Brand')
