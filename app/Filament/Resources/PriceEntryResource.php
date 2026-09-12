@@ -89,7 +89,17 @@ class PriceEntryResource extends Resource
                         ->dehydrated(),
                     Forms\Components\Select::make('brand_id')
                         ->label('Brand')
-                        ->relationship('brand', 'name')
+                        ->options(function () {
+                            $user = auth()->user();
+                            if (!$user) {
+                                return [];
+                            }
+                            if ($user->hasRole('super_admin')) {
+                                return \App\Models\Brand::pluck('name', 'id');
+                            }
+                            // Using the brand_user pivot table via the User's brands() relationship
+                            return $user->brands()->pluck('name', 'brands.id');
+                        })
                         ->searchable()
                         ->preload()
                         ->required()
@@ -422,11 +432,10 @@ class PriceEntryResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('car.id')
+                Tables\Columns\TextColumn::make('crm_id')
                     ->label('CRM ID')
                     ->sortable()
-                    ->searchable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('model_name')
                     ->label('Model')

@@ -72,4 +72,9 @@ class RolePolicy
         return $authUser->can('Reorder:Role');
     }
 
+    public function manageCrmId(AuthUser $authUser, Role $role): bool
+    {
+        return $authUser->can('ManageCrmId:Role');
+    }
+
 }

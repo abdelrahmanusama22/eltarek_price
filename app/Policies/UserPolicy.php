@@ -69,4 +69,9 @@ class UserPolicy
         return $authUser->can('Reorder:User');
     }
 
+    public function manageCrmId(AuthUser $authUser): bool
+    {
+        return $authUser->can('ManageCrmId:User');
+    }
+
 }
