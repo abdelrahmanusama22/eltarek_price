@@ -45,6 +45,7 @@ class PriceEntryImporter extends Importer
 
             ImportColumn::make('hold_status')
                 ->label('Hold Status')
+                ->guess(['hold_status', 'crm_hold_status', 'Hold Status', 'CRM Hold Status'])
                 ->rules(['nullable', 'in:NO,YES,Wishing List,STOP']),
 
             ImportColumn::make('additional_info')

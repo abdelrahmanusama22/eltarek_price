@@ -3,19 +3,57 @@
 namespace App\Exports;
 
 use App\Models\PriceEntry;
-use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class DynamicPriceListExport implements FromCollection, WithHeadings, WithMapping, ShouldAutoSize
+class DynamicPriceListExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize, WithEvents
 {
     protected array $uniqueOffers;
+    protected int $currentRow = 3; // Data starts at row 3 (after 2 heading rows)
+    protected array $cellsToHighlight = [];
+
+    protected function getConflictQuery()
+    {
+        $query = PriceEntry::query()->with(['brand', 'car']);
+
+        $columnMap = [
+            'official_price'   => 'official_price',
+            'model_name'       => 'model_name',
+            'model_sales_code' => 'model_sales_code',
+            'year'             => 'year',
+            'brand_id'         => 'brand_id',
+            'crm_hold_status'  => 'hold_status',
+        ];
+
+        return $query->whereHas('car', function ($carQuery) use ($columnMap) {
+            $carQuery->where(function ($q) use ($columnMap) {
+                foreach ($columnMap as $crmField => $priceField) {
+                    $q->orWhere(function ($subQ) use ($crmField, $priceField) {
+                        if ($priceField === 'official_price') {
+                            $subQ->whereRaw("ROUND(CAST(COALESCE(cars.{$crmField}, 0) AS DECIMAL(15,2)), 2) != ROUND(CAST(COALESCE(price_entries.{$priceField}, 0) AS DECIMAL(15,2)), 2)");
+                        } elseif (in_array($priceField, ['model_name', 'model_sales_code', 'hold_status'])) {
+                            $subQ->whereRaw("TRIM(LOWER(COALESCE(cars.{$crmField}, ''))) != TRIM(LOWER(COALESCE(price_entries.{$priceField}, '')))");
+                        } else {
+                            $subQ->whereRaw("COALESCE(cars.{$crmField}, 0) != COALESCE(price_entries.{$priceField}, 0)");
+                        }
+                        
+                        // Ensure this specific field hasn't been ignored
+                        $subQ->whereNull("price_entries.ignored_crm_updates->{$priceField}");
+                    });
+                }
+            });
+        });
+    }
 
     public function __construct()
     {
-        // Extract all unique offer titles across all price entries
-        $this->uniqueOffers = PriceEntry::query()
+        // Extract all unique offer titles strictly across conflicting price entries
+        $this->uniqueOffers = $this->getConflictQuery()
             ->whereNotNull('offers')
             ->get()
             ->flatMap(function ($entry) {
@@ -27,9 +65,10 @@ class DynamicPriceListExport implements FromCollection, WithHeadings, WithMappin
             ->toArray();
     }
 
-    public function collection()
+    public function query()
     {
-        return PriceEntry::with('brand')->get();
+        // This strictly returns ONLY the conflicted rows for export
+        return $this->getConflictQuery();
     }
 
     public function headings(): array
@@ -44,13 +83,29 @@ class DynamicPriceListExport implements FromCollection, WithHeadings, WithMappin
         ], $this->uniqueOffers);
 
         return [
-            ['Export Date: ' . now()->format('d-m-Y')],
+            ['Export Date: ' . now()->format('d-m-Y') . ' (Conflicting Records Only)'],
             $mainHeaders
         ];
     }
 
     public function map($row): array
     {
+        $conflicts = $row->getConflictsWithCar($row->car);
+
+        // Track cells to highlight based on conflicts
+        if (isset($conflicts['brand_id'])) {
+            $this->cellsToHighlight[] = 'A' . $this->currentRow;
+        }
+        if (isset($conflicts['model_name'])) {
+            $this->cellsToHighlight[] = 'B' . $this->currentRow;
+        }
+        if (isset($conflicts['model_sales_code'])) {
+            $this->cellsToHighlight[] = 'C' . $this->currentRow;
+        }
+        if (isset($conflicts['official_price'])) {
+            $this->cellsToHighlight[] = 'D' . $this->currentRow;
+        }
+
         $mapped = [
             $row->brand?->name ?? 'N/A',
             $row->model_name ?? 'N/A',
@@ -86,6 +141,36 @@ class DynamicPriceListExport implements FromCollection, WithHeadings, WithMappin
             }
         }
 
+        $this->currentRow++;
+
         return $mapped;
+    }
+
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                
+                // Style headings
+                $sheet->getStyle('A2:' . $sheet->getHighestColumn() . '2')->applyFromArray([
+                    'font' => ['bold' => true],
+                    'fill' => [
+                        'fillType' => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => 'E2EFDA']
+                    ]
+                ]);
+
+                // Highlight conflicting cells
+                foreach ($this->cellsToHighlight as $cell) {
+                    $sheet->getStyle($cell)->applyFromArray([
+                        'fill' => [
+                            'fillType' => Fill::FILL_SOLID,
+                            'startColor' => ['rgb' => 'FFFF00'] // Warning Yellow
+                        ]
+                    ]);
+                }
+            },
+        ];
     }
 }

@@ -119,7 +119,7 @@ class PriceEntry extends Model
      */
     public function car(): BelongsTo
     {
-        return $this->belongsTo(Car::class);
+        return $this->belongsTo(Car::class, 'model_sales_code', 'model_sales_code');
     }
 
     /**
@@ -136,5 +136,69 @@ class PriceEntry extends Model
     public function lastUpdater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'last_updated_by');
+    }
+
+    /**
+     * Compare this PriceEntry with a Car model and return an array of normalized mismatches.
+     * Prevents false positives from type casting, trailing spaces, or minor decimal differences.
+     */
+    public function getConflictsWithCar($car): array
+    {
+        if (!$car) return [];
+        
+        $columnMap = [
+            'official_price'   => 'official_price',
+            'model_name'       => 'model_name',
+            'model_sales_code' => 'model_sales_code',
+            'year'             => 'year',
+            'brand_id'         => 'brand_id',
+            'crm_hold_status'  => 'hold_status',
+        ];
+        
+        $ignored = $this->ignored_crm_updates ?? [];
+        $mismatches = [];
+
+        foreach ($columnMap as $crmField => $priceField) {
+            $carVal = $car->$crmField;
+            $entryVal = $this->$priceField;
+            $ignoredVal = $ignored[$priceField] ?? null;
+
+            // 1. Normalize Prices (Float comparison)
+            if ($priceField === 'official_price') {
+                $carVal = round((float)($carVal ?: 0), 2);
+                $entryVal = round((float)($entryVal ?: 0), 2);
+                if ($ignoredVal !== null) {
+                    $ignoredVal = round((float)($ignoredVal ?: 0), 2);
+                }
+            } 
+            // 2. Normalize Strings (Trim, Lowercase)
+            elseif (in_array($priceField, ['model_name', 'model_sales_code', 'hold_status'])) {
+                $carVal = trim(strtolower((string)$carVal));
+                $entryVal = trim(strtolower((string)$entryVal));
+                if ($ignoredVal !== null) {
+                    $ignoredVal = trim(strtolower((string)$ignoredVal));
+                }
+            }
+            // 3. Normalize Integers/Relations
+            else {
+                $carVal = (int)($carVal ?: 0);
+                $entryVal = (int)($entryVal ?: 0);
+                if ($ignoredVal !== null) {
+                    $ignoredVal = (int)($ignoredVal ?: 0);
+                }
+            }
+
+            // If they don't match, and the car's current value isn't explicitly ignored
+            if ($carVal !== $entryVal && $ignoredVal !== $carVal) {
+                $mismatches[$priceField] = [
+                    'car_value' => $carVal,
+                    'entry_value' => $entryVal,
+                    'original_car_value' => $car->$crmField,
+                    'original_entry_value' => $this->$priceField,
+                ];
+            }
+        }
+        
+        return $mismatches;
     }
 }

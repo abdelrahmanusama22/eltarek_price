@@ -432,6 +432,15 @@ class PriceEntryResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\IconColumn::make('conflict')
+                    ->label('Conflict')
+                    ->boolean()
+                    ->getStateUsing(function ($record) {
+                        return count($record->getConflictsWithCar($record->car)) > 0;
+                    })
+                    ->action('resolveConflict')
+                    ->toggleable(),
+
                 Tables\Columns\TextColumn::make('crm_id')
                     ->label('CRM ID')
                     ->sortable()
@@ -744,47 +753,19 @@ Tables\Columns\TextInputColumn::make('execution_price')
                             return false;
                         }
                         
-                        if (!$record->car) {
-                            return false;
-                        }
-
-                        $columnMap = [
-                            'official_price'   => 'official_price',
-                            'model_name'       => 'model_name',
-                            'model_sales_code' => 'model_sales_code',
-                            'year'             => 'year',
-                            'brand_id'         => 'brand_id',
-                            'crm_hold_status'  => 'hold_status',
-                        ];
-                        $ignored = $record->ignored_crm_updates ?? [];
-                        foreach ($columnMap as $crmField => $priceField) {
-                            if ($record->car->$crmField != $record->$priceField && ($ignored[$priceField] ?? null) != $record->car->$crmField) {
-                                return true;
-                            }
-                        }
-                        return false;
+                        return count($record->getConflictsWithCar($record->car)) > 0;
                     })
                     ->modalHeading('Resolve Mismatches')
                     ->form(function (PriceEntry $record) {
-                        if (!$record->car) {
-                            return [];
+                        $conflicts = $record->getConflictsWithCar($record->car);
+                        $mismatches = [];
+                        
+                        foreach ($conflicts as $field => $data) {
+                            $mismatches[] = ucfirst(str_replace('_', ' ', $field)) . ": " . 
+                                ($data['original_entry_value'] ?? 'None') . " -> " . 
+                                ($data['original_car_value'] ?? 'None');
                         }
                         
-                        $columnMap = [
-                            'official_price'   => 'official_price',
-                            'model_name'       => 'model_name',
-                            'model_sales_code' => 'model_sales_code',
-                            'year'             => 'year',
-                            'brand_id'         => 'brand_id',
-                            'crm_hold_status'  => 'hold_status',
-                        ];
-                        $ignored = $record->ignored_crm_updates ?? [];
-                        $mismatches = [];
-                        foreach ($columnMap as $crmField => $priceField) {
-                            if ($record->car->$crmField != $record->$priceField && ($ignored[$priceField] ?? null) != $record->car->$crmField) {
-                                $mismatches[] = ucfirst(str_replace('_', ' ', $priceField)) . ": " . ($record->$priceField ?? 'None') . " -> " . ($record->car->$crmField ?? 'None');
-                            }
-                        }
                         return [
                             Forms\Components\Placeholder::make('mismatch_info')
                                 ->label('Discrepancies Detected')

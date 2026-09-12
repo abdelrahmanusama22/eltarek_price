@@ -319,10 +319,16 @@ class ListPriceEntries extends ListRecords
                         $carQuery->where(function ($q) use ($columnMap) {
                             foreach ($columnMap as $crmField => $priceField) {
                                 $q->orWhere(function ($subQ) use ($crmField, $priceField) {
-                                    // Null-safe comparison to catch mismatches even if one is NULL
-                                    $subQ->whereRaw("NOT (cars.{$crmField} <=> price_entries.{$priceField})")
-                                         // Ensure this specific field hasn't been ignored
-                                         ->whereNull("price_entries.ignored_crm_updates->{$priceField}");
+                                    if ($priceField === 'official_price') {
+                                        $subQ->whereRaw("ROUND(CAST(COALESCE(cars.{$crmField}, 0) AS DECIMAL(15,2)), 2) != ROUND(CAST(COALESCE(price_entries.{$priceField}, 0) AS DECIMAL(15,2)), 2)");
+                                    } elseif (in_array($priceField, ['model_name', 'model_sales_code', 'hold_status'])) {
+                                        $subQ->whereRaw("TRIM(LOWER(COALESCE(cars.{$crmField}, ''))) != TRIM(LOWER(COALESCE(price_entries.{$priceField}, '')))");
+                                    } else {
+                                        $subQ->whereRaw("COALESCE(cars.{$crmField}, 0) != COALESCE(price_entries.{$priceField}, 0)");
+                                    }
+                                    
+                                    // Ensure this specific field hasn't been ignored
+                                    $subQ->whereNull("price_entries.ignored_crm_updates->{$priceField}");
                                 });
                             }
                         });
