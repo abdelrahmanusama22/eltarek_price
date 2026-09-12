@@ -38,6 +38,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Increase execution time for Filament bulk imports/actions
+        if (request()->is('admin/cars*') || request()->is('admin/price-entries*')) {
+            set_time_limit(300); // 5 minutes
+            ini_set('memory_limit', '512M');
+        }
+
         \Illuminate\Support\Facades\URL::forceRootUrl(config('app.url'));
         Gate::policy(\Spatie\Activitylog\Models\Activity::class, \App\Policies\ActivityPolicy::class);
 

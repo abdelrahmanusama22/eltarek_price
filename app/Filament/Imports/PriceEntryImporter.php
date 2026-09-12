@@ -15,6 +15,10 @@ class PriceEntryImporter extends Importer
     public static function getColumns(): array
     {
         return [
+            ImportColumn::make('crm_id')
+                ->label('CRM ID')
+                ->rules(['nullable', 'string', 'max:255']),
+
             ImportColumn::make('model_sales_code')
                 ->label('Model Sales Code')
                 ->requiredMapping()

@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->reportable(function (Throwable $e) {
-            if (request()->is('livewire/upload-file*')) {
+            if (app()->bound('request') && request()->is('livewire/upload-file*')) {
                 \Illuminate\Support\Facades\Log::error('Livewire Upload Failed:', [
                     'message' => $e->getMessage(),
                     'class' => get_class($e),
