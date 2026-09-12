@@ -82,29 +82,42 @@ class PriceEntryResource extends Resource
             Schemas\Components\Section::make('Price Entry')
                 ->description('Enter official and execution prices. The engine will automatically compute max selling price and 3M protection price on save.')
                 ->schema([
+                    Forms\Components\TextInput::make('crm_id')
+                        ->label('CRM ID')
+                        ->maxLength(255)
+                        ->disabled(fn () => !auth()->check() || !auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(),
                     Forms\Components\Select::make('brand_id')
                         ->label('Brand')
                         ->relationship('brand', 'name')
                         ->searchable()
                         ->preload()
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => $record !== null && !empty($record->crm_id) && !auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(),
 
                     Forms\Components\TextInput::make('model_name')
                         ->label('Model Name')
                         ->maxLength(255)
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => $record !== null && !empty($record->crm_id) && !auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(),
 
                     Forms\Components\TextInput::make('model_sales_code')
                         ->label('Sales Code')
                         ->maxLength(255)
-                        ->required(),
+                        ->required()
+                        ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => $record !== null && !empty($record->crm_id) && !auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(),
 
                     Forms\Components\TextInput::make('year')
                         ->label('Year')
                         ->numeric()
                         ->minValue(1900)
                         ->maxValue(2100)
-                        ->nullable(),
+                        ->nullable()
+                        ->disabled(fn (?\Illuminate\Database\Eloquent\Model $record) => $record !== null && !empty($record->crm_id) && !auth()->user()->hasRole('super_admin'))
+                        ->dehydrated(),
 
                 ])->columns(2),
 
@@ -415,13 +428,13 @@ class PriceEntryResource extends Resource
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
 
-                Tables\Columns\TextColumn::make('car.model_name')
+                Tables\Columns\TextColumn::make('model_name')
                     ->label('Model')
                     ->searchable()
                     ->sortable()
                     ->toggleable(),
 
-                Tables\Columns\TextColumn::make('car.model_sales_code')
+                Tables\Columns\TextColumn::make('model_sales_code')
                     ->label('Sales Code')
                     ->searchable()
                     ->toggleable(),
@@ -721,6 +734,10 @@ Tables\Columns\TextInputColumn::make('execution_price')
                         if (!auth()->user()->can('resolve_conflict_price_entry')) {
                             return false;
                         }
+                        
+                        if (!$record->car) {
+                            return false;
+                        }
 
                         $columnMap = [
                             'official_price'   => 'official_price',
@@ -740,6 +757,10 @@ Tables\Columns\TextInputColumn::make('execution_price')
                     })
                     ->modalHeading('Resolve Mismatches')
                     ->form(function (PriceEntry $record) {
+                        if (!$record->car) {
+                            return [];
+                        }
+                        
                         $columnMap = [
                             'official_price'   => 'official_price',
                             'model_name'       => 'model_name',
@@ -770,6 +791,10 @@ Tables\Columns\TextInputColumn::make('execution_price')
                         ];
                     })
                     ->action(function (array $data, PriceEntry $record) {
+                        if (!$record->car) {
+                            return;
+                        }
+                        
                         $columnMap = [
                             'official_price'   => 'official_price',
                             'model_name'       => 'model_name',

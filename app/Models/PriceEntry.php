@@ -14,6 +14,7 @@ class PriceEntry extends Model
 
     protected $fillable = [
         'car_id',
+        'crm_id',
         'brand_id',
         'official_price',
         'execution_price',
@@ -50,7 +51,32 @@ class PriceEntry extends Model
 
     protected static function booted()
     {
+        static::creating(function ($entry) {
+            if (empty($entry->crm_id) && !empty($entry->model_sales_code)) {
+                $car = \App\Models\Car::where('model_sales_code', $entry->model_sales_code)->first();
+                if ($car && !empty($car->crm_id)) {
+                    $entry->crm_id = $car->crm_id;
+                }
+            }
+        });
+
         static::updating(function ($priceEntry) {
+            // Check if it already has a CRM ID and user is NOT super_admin
+            $hasCrmId = !empty($priceEntry->getOriginal('crm_id'));
+            $isNotSuperAdmin = auth()->check() && !auth()->user()->hasRole('super_admin');
+
+            if ($hasCrmId && $isNotSuperAdmin) {
+                // Fields to lock/ignore changes for
+                $protectedFields = ['brand_id', 'model_name', 'model_sales_code', 'year', 'crm_id'];
+
+                foreach ($protectedFields as $field) {
+                    if ($priceEntry->isDirty($field)) {
+                        // Silently revert the change (ignore it)
+                        $priceEntry->{$field} = $priceEntry->getOriginal($field);
+                    }
+                }
+            }
+
             if (auth()->check()) {
                 $priceEntry->last_updated_by = auth()->id();
             }

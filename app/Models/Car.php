@@ -37,6 +37,20 @@ class Car extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function ($car) {
+            if ($car->isDirty('crm_id') && !empty($car->crm_id)) {
+                $salesCode = $car->model_sales_code ?? clone $car->sales_code ?? null;
+                
+                if ($salesCode) {
+                    \App\Models\PriceEntry::where('model_sales_code', $salesCode)
+                        ->update(['crm_id' => $car->crm_id]);
+                }
+            }
+        });
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
