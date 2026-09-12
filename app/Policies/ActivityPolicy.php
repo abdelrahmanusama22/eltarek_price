@@ -72,4 +72,9 @@ class ActivityPolicy
         return $authUser->can('Reorder:Activity');
     }
 
+    public function manageCrmId(AuthUser $authUser, Activity $activity): bool
+    {
+        return $authUser->can('ManageCrmId:Activity');
+    }
+
 }

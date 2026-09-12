@@ -72,4 +72,9 @@ class PriceEntryPolicy
         return $authUser->can('Reorder:PriceEntry');
     }
 
+    public function manageCrmId(AuthUser $authUser, PriceEntry $priceEntry): bool
+    {
+        return $authUser->can('ManageCrmId:PriceEntry');
+    }
+
 }

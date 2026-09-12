@@ -72,4 +72,9 @@ class BrandPolicy
         return $authUser->can('Reorder:Brand');
     }
 
+    public function manageCrmId(AuthUser $authUser, Brand $brand): bool
+    {
+        return $authUser->can('ManageCrmId:Brand');
+    }
+
 }

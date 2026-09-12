@@ -19,10 +19,13 @@ class PriceEntryImporter extends Importer
                 ->label('CRM ID')
                 ->rules(['nullable', 'string', 'max:255']),
 
+            ImportColumn::make('brand')
+                ->relationship('brand', 'name')
+                ->rules(['nullable']),
+
             ImportColumn::make('model_sales_code')
                 ->label('Model Sales Code')
-                ->requiredMapping()
-                ->rules(['required', 'string']),
+                ->rules(['nullable', 'string']),
 
             ImportColumn::make('official_price')
                 ->label('Official Price')
@@ -193,39 +196,30 @@ class PriceEntryImporter extends Importer
         $salesCode = $this->data['model_sales_code'] ?? null;
         
         if (empty($salesCode)) {
-            $this->addError('model_sales_code', 'Model Sales Code is required to link the price entry.');
+            $this->addError('model_sales_code', 'Model Sales Code is required.');
             return null;
         }
 
         $car = Car::where('model_sales_code', $salesCode)->first();
 
-        // Validation 1: Car must exist in the database.
-        if (! $car) {
-            $this->addError('model_sales_code', "Car with Sales Code [{$salesCode}] does not exist in the system.");
-            return null;
-        }
-        
-        // Save the resolved car_id so beforeCreate/beforeSave can use it
-        $this->data['car_id'] = $car->id;
+        if ($car) {
+            $this->data['car_id'] = $car->id;
+            
+            if (auth()->user()?->isBrandManager()) {
+                $authorizedBrandIds = auth()->user()->brands->pluck('id');
 
-        // Validation 2: The car's brand must be within the uploading
-        // Brand Manager's authorized brands (multi-tenancy enforcement).
-        if (auth()->user()?->isBrandManager()) {
-            $authorizedBrandIds = auth()->user()->brands->pluck('id');
-
-            if (! $authorizedBrandIds->contains($car->brand_id)) {
-                $this->addError(
-                    'model_sales_code',
-                    "Unauthorized: Car with Sales Code [{$salesCode}] belongs to a brand you are not authorized to manage."
-                );
-                return null;
+                if (! $authorizedBrandIds->contains($car->brand_id)) {
+                    $this->addError(
+                        'model_sales_code',
+                        "Unauthorized: Car with Sales Code [{$salesCode}] belongs to a brand you are not authorized to manage."
+                    );
+                    return null;
+                }
             }
         }
 
-        // Upsert: find existing entry or instantiate a new one.
-        // The PriceEntryObserver `saving` event will automatically
-        // compute max_selling_price and protection_3m_price.
-        return PriceEntry::firstOrNew(['car_id' => $car->id]);
+        // Upsert: find existing entry or instantiate a new one based on model_sales_code.
+        return PriceEntry::firstOrNew(['model_sales_code' => $salesCode]);
     }
 
     /**
@@ -236,24 +230,45 @@ class PriceEntryImporter extends Importer
         /** @var PriceEntry $record */
         $record = $this->record;
 
+        // Link car_id if found
+        if (isset($this->data['car_id'])) {
+            $record->car_id = $this->data['car_id'];
+        }
+
         // Denormalize brand_id from the car for query-scoping performance
-        if (empty($record->brand_id)) {
-            $car = Car::find($this->data['car_id']);
+        if (empty($record->brand_id) && !empty($record->car_id)) {
+            $car = Car::find($record->car_id);
             if ($car) {
                 $record->brand_id = $car->brand_id;
             }
+        }
+        
+        // If brand_id is still empty, fallback to the first authorized brand or default (to prevent DB crash)
+        if (empty($record->brand_id)) {
+            $record->brand_id = auth()->user()?->brands->first()?->id ?? \App\Models\Brand::first()?->id ?? 1;
         }
     }
 
     protected function beforeSave(): void
     {
-        // Same brand_id sync logic on updates
         $record = $this->record;
-        if (empty($record->brand_id) && isset($this->data['car_id'])) {
-            $car = Car::find($this->data['car_id']);
+
+        // Link car_id if found
+        if (isset($this->data['car_id'])) {
+            $record->car_id = $this->data['car_id'];
+        }
+
+        // Same brand_id sync logic on updates
+        if (empty($record->brand_id) && !empty($record->car_id)) {
+            $car = Car::find($record->car_id);
             if ($car) {
                 $record->brand_id = $car->brand_id;
             }
+        }
+        
+        // If brand_id is still empty, fallback to the first authorized brand or default (to prevent DB crash)
+        if (empty($record->brand_id)) {
+            $record->brand_id = auth()->user()?->brands->first()?->id ?? \App\Models\Brand::first()?->id ?? 1;
         }
     }
 

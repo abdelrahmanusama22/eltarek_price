@@ -72,4 +72,9 @@ class CarPolicy
         return $authUser->can('Reorder:Car');
     }
 
+    public function manageCrmId(AuthUser $authUser, Car $car): bool
+    {
+        return $authUser->can('ManageCrmId:Car');
+    }
+
 }
