@@ -438,7 +438,6 @@ class PriceEntryResource extends Resource
                     ->getStateUsing(function ($record) {
                         return count($record->getConflictsWithCar($record->car)) > 0;
                     })
-                    ->action('resolveConflict')
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('crm_id')

@@ -48,11 +48,39 @@ class ListPriceEntries extends ListRecords
                             ->label('Offer Title')
                             ->required()
                             ->placeholder('e.g. 9% Installment Offer'),
+                        \Filament\Forms\Components\Select::make('price_basis')
+                            ->label('Base Price (Depends On)')
+                            ->options([
+                                'max_selling_price' => 'Max Selling Price',
+                                'execution_price'   => 'Execution Price',
+                            ])
+                            ->required()
+                            ->default('max_selling_price'),
+                        \Filament\Forms\Components\Radio::make('offer_type')
+                            ->label('Offer Type')
+                            ->options([
+                                'amount'     => 'Fixed Amount (EGP)',
+                                'percentage' => 'Percentage (%)',
+                            ])
+                            ->default('amount')
+                            ->inline()
+                            ->live()
+                            ->columnSpanFull(),
                         \Filament\Forms\Components\TextInput::make('price')
-                            ->label('Price (EGP)')
+                            ->label(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage'
+                                    ? 'Discount Percentage (%)'
+                                    : 'Offer Amount (EGP)'
+                            )
                             ->required()
                             ->numeric()
-                            ->minValue(0),
+                            ->minValue(0)
+                            ->maxValue(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage' ? 100 : PHP_INT_MAX
+                            )
+                            ->suffix(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage' ? '%' : 'EGP'
+                            ),
                         \Filament\Forms\Components\Textarea::make('note')
                             ->label('Note / Terms')
                             ->rows(2)
@@ -89,6 +117,8 @@ class ListPriceEntries extends ListRecords
                     ]),
                 ])
                 ->action(function (array $data) {
+                    set_time_limit(0);
+
                     $query = \App\Models\PriceEntry::query();
 
                     if ($data['scope'] === 'brands') {
@@ -104,17 +134,27 @@ class ListPriceEntries extends ListRecords
 
                     foreach ($entries as $entry) {
                         $offers = $entry->offers ?? [];
-                        
+
+                        $basePrice        = (float) ($entry->{$data['price_basis']} ?? 0);
+                        $calculatedPrice  = $data['offer_type'] === 'percentage'
+                            ? round($basePrice * ($data['price'] / 100), 2)
+                            : (float) $data['price'];
+
+                        // Normalise offer_type: modal uses 'amount', Repeater Select uses 'fixed'
+                        $offerType = $data['offer_type'] === 'amount' ? 'fixed' : $data['offer_type'];
+
                         $newOffer = [
-                            'id'        => $data['offer_id'],
-                            'title'     => $data['title'],
-                            'price'     => $data['price'],
-                            'is_active' => true,
-                            'note'      => $data['note'] ?? null,
+                            'id'          => $data['offer_id'],
+                            'title'       => $data['title'],
+                            'offer_type'  => $offerType,
+                            'value'       => (float) $data['price'],   // key read by Repeater's 'value' TextInput
+                            'price_basis' => $data['price_basis'],
+                            'is_active'   => true,
+                            'note'        => $data['note'] ?? null,
                         ];
 
                         $offers[] = $newOffer;
-                        $entry->update(['offers' => $offers]);
+                        $entry->updateQuietly(['offers' => $offers]);
                         $count++;
                     }
 
@@ -141,11 +181,39 @@ class ListPriceEntries extends ListRecords
                             ->label('New Offer Title')
                             ->required()
                             ->placeholder('e.g. 10% Installment Offer'),
+                        \Filament\Forms\Components\Select::make('price_basis')
+                            ->label('Base Price (Depends On)')
+                            ->options([
+                                'max_selling_price' => 'Max Selling Price',
+                                'execution_price'   => 'Execution Price',
+                            ])
+                            ->required()
+                            ->default('max_selling_price'),
+                        \Filament\Forms\Components\Radio::make('offer_type')
+                            ->label('Offer Type')
+                            ->options([
+                                'amount'     => 'Fixed Amount (EGP)',
+                                'percentage' => 'Percentage (%)',
+                            ])
+                            ->default('amount')
+                            ->inline()
+                            ->live()
+                            ->columnSpanFull(),
                         \Filament\Forms\Components\TextInput::make('price')
-                            ->label('New Price (EGP)')
+                            ->label(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage'
+                                    ? 'New Discount Percentage (%)'
+                                    : 'New Offer Amount (EGP)'
+                            )
                             ->required()
                             ->numeric()
-                            ->minValue(0),
+                            ->minValue(0)
+                            ->maxValue(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage' ? 100 : PHP_INT_MAX
+                            )
+                            ->suffix(fn (\Filament\Schemas\Components\Utilities\Get $get) =>
+                                $get('offer_type') === 'percentage' ? '%' : 'EGP'
+                            ),
                     ])->columns(1),
 
                     \Filament\Schemas\Components\Section::make('Target Scope')->schema([
@@ -178,6 +246,8 @@ class ListPriceEntries extends ListRecords
                     ]),
                 ])
                 ->action(function (array $data) {
+                    set_time_limit(0);
+
                     $query = \App\Models\PriceEntry::query();
 
                     if ($data['scope'] === 'brands') {
@@ -194,17 +264,27 @@ class ListPriceEntries extends ListRecords
                     foreach ($entries as $entry) {
                         $offers = $entry->offers ?? [];
                         $updated = false;
-                        
+
+                        $basePrice       = (float) ($entry->{$data['price_basis']} ?? 0);
+                        $calculatedPrice = $data['offer_type'] === 'percentage'
+                            ? round($basePrice * ($data['price'] / 100), 2)
+                            : (float) $data['price'];
+
+                        // Normalise offer_type: modal uses 'amount', Repeater Select uses 'fixed'
+                        $offerType = $data['offer_type'] === 'amount' ? 'fixed' : $data['offer_type'];
+
                         foreach ($offers as &$offer) {
                             if (isset($offer['title']) && strtolower(trim($offer['title'])) === strtolower(trim($data['target_offer_title']))) {
-                                $offer['title'] = $data['title'];
-                                $offer['price'] = $data['price'];
+                                $offer['title']       = $data['title'];
+                                $offer['offer_type']  = $offerType;
+                                $offer['value']       = (float) $data['price'];   // key read by Repeater's 'value' TextInput
+                                $offer['price_basis'] = $data['price_basis'];
                                 $updated = true;
                             }
                         }
 
                         if ($updated) {
-                            $entry->update(['offers' => $offers]);
+                            $entry->updateQuietly(['offers' => $offers]);
                             $count++;
                         }
                     }
@@ -260,6 +340,8 @@ class ListPriceEntries extends ListRecords
                     ]),
                 ])
                 ->action(function (array $data) {
+                    set_time_limit(0);
+
                     $query = \App\Models\PriceEntry::query();
 
                     if ($data['scope'] === 'brands') {
@@ -282,7 +364,7 @@ class ListPriceEntries extends ListRecords
                         });
 
                         if (count($offers) < $initialCount) {
-                            $entry->update(['offers' => array_values($offers)]);
+                            $entry->updateQuietly(['offers' => array_values($offers)]);
                             $count++;
                         }
                     }

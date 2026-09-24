@@ -40,4 +40,30 @@ class PriceEntryObserver
             $priceEntry->protection_3m_price = $executionPrice - $maxAllowedSellingPrice;
         }
     }
+
+    /**
+     * Handle the PriceEntry "saved" event.
+     * Fires immediately after creation or update to notify backend_eltarek.
+     */
+    public function saved(PriceEntry $priceEntry): void
+    {
+        \App\Jobs\NotifyCatalogUpdateJob::dispatchSync([
+            'crm_id' => $priceEntry->crm_id,
+            'sales_code' => $priceEntry->model_sales_code,
+            'price' => $priceEntry->max_selling_price,
+            'source' => 'price_entry_updated',
+        ]);
+    }
+
+    /**
+     * Handle the PriceEntry "deleted" event.
+     */
+    public function deleted(PriceEntry $priceEntry): void
+    {
+        \App\Jobs\NotifyCatalogUpdateJob::dispatchSync([
+            'crm_id' => $priceEntry->crm_id,
+            'sales_code' => $priceEntry->model_sales_code,
+            'source' => 'price_entry_deleted',
+        ]);
+    }
 }
