@@ -50,10 +50,18 @@ class AppServiceProvider extends ServiceProvider
         // Register the Pricing Engine Observer.
         PriceEntry::observe(PriceEntryObserver::class);
 
-        // Implicitly grant "super_admin" role all permissions
-        Gate::before(function ($user, $ability) {
+        // Implicitly grant "super_admin" role all permissions, EXCEPT for deleting audit/activity logs
+        Gate::before(function ($user, $ability, array $arguments = []) {
+            if (in_array(strtolower($ability), ['delete', 'deleteany', 'forcedelete', 'forcedeleteany'])) {
+                $target = $arguments[0] ?? null;
+                if ($target === \Spatie\Activitylog\Models\Activity::class || $target instanceof \Spatie\Activitylog\Models\Activity) {
+                    return false;
+                }
+            }
+
             return $user->hasRole('super_admin') ? true : null;
         });
+
 
         // ---------------------------------------------------------------------
         // MACRO: ImportAction::excel()

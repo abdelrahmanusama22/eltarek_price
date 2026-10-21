@@ -831,8 +831,23 @@ Tables\Columns\TextInputColumn::make('execution_price')
                         // using wire:navigate for a seamless, instant SPA refresh.
                         $livewire->redirect(request()->header('Referer'), navigate: true);
                     }),
+                Actions\Action::make('price_history')
+                    ->label('Price History')
+                    ->icon('heroicon-m-clock')
+                    ->color('info')
+                    ->slideOver()
+                    ->modalWidth('6xl')
+                    ->modalHeading(fn (PriceEntry $record): string => 'Price History: ' . ($record->car?->brand?->name ?? 'Vehicle') . ' ' . ($record->car?->model_name ?? '') . ' (' . ($record->model_sales_code ?? '') . ')')
+                    ->modalDescription('Audit trail of price revisions. Filter by date, then export the filtered result to Excel.')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalContent(fn (PriceEntry $record): \Illuminate\Contracts\View\View => view('livewire.price-history-modal', [
+                        'recordId' => $record->getKey(),
+                    ])),
+
                 Actions\EditAction::make(),
                 Actions\DeleteAction::make(),
+
             ])
             ->bulkActions([
                 Actions\BulkActionGroup::make([

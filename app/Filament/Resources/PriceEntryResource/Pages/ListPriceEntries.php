@@ -29,6 +29,34 @@ class ListPriceEntries extends ListRecords
                 ->action(function () {
                     return Excel::download(new \App\Exports\DynamicPriceListExport(), 'price_list_'.now()->format('Y-m-d').'.xlsx');
                 }),
+            Actions\Action::make('export_global_history')
+                ->label('Export Price History')
+                ->icon('heroicon-m-document-arrow-down')
+                ->color('gray')
+                ->modalHeading('Export Price History')
+                ->modalDescription('Exports all price changes for the vehicles you manage within the selected dates.')
+                ->modalSubmitActionLabel('Export')
+                ->form([
+                    \Filament\Forms\Components\DatePicker::make('start_date')
+                        ->label('From Date')
+                        ->default(now()->toDateString())
+                        ->maxDate(now())
+                        ->required()
+                        ->live(),
+                    \Filament\Forms\Components\DatePicker::make('end_date')
+                        ->label('To Date')
+                        ->default(now()->toDateString())
+                        ->maxDate(now())
+                        ->required()
+                        ->afterOrEqual('start_date'),
+                ])
+                ->action(function (array $data) {
+                    return Excel::download(
+                        new \App\Exports\GlobalPriceHistoryExport($data['start_date'], $data['end_date']),
+                        'price_history_' . $data['start_date'] . '_to_' . $data['end_date'] . '.xlsx'
+                    );
+                }),
+
             \Filament\Actions\ActionGroup::make([
                 Actions\Action::make('bulk_offer_engine')
                 ->label('Bulk Offer Engine')
