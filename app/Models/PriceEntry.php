@@ -97,6 +97,22 @@ class PriceEntry extends Model
             ->useLogName('enterprise_audit');
     }
 
+    /**
+     * Spatie Activitylog v5 hook (this was `tapActivity()` in v4).
+     *
+     * Stamps the immutable business keys onto every activity's `properties`,
+     * so the history stays linked to the vehicle even if this row is hard-deleted
+     * and re-created (new auto-increment id) by an Excel re-upload.
+     */
+    public function beforeActivityLogged(\Spatie\Activitylog\Models\Activity $activity, string $event): void
+    {
+        $activity->properties = collect($activity->properties ?? [])->merge(array_filter([
+            'model_sales_code' => $this->model_sales_code,
+            'crm_id'           => $this->crm_id,
+        ], fn ($v) => $v !== null && $v !== ''));
+    }
+
+
     // -------------------------------------------------------------------------
     // Business Logic Accessor: Computed Total Price for Sales Portal
     // Formula: max_selling_price + protection_3m_price  (PRD Section 5.2)
