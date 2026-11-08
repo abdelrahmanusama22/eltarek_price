@@ -2,15 +2,13 @@
 
 namespace App\Livewire;
 
-use App\Models\User;
-use Filament\Facades\Filament;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
  * Topbar button + large modal that renders the live Sales Portal in an <iframe>,
- * so Admins / Brand Managers can see what sales reps see without leaving the panel.
+ * so any logged-in panel user can see what sales reps see without leaving the panel.
  */
 class SalesPortalPreviewModal extends Component
 {
@@ -21,17 +19,6 @@ class SalesPortalPreviewModal extends Component
     /** Locked: the client must not be able to point the iframe somewhere else. */
     #[Locked]
     public string $portalUrl = '';
-
-    /**
-     * Who may see the preview (used by the render hook AND re-checked on every action).
-     */
-    public static function canAccess(): bool
-    {
-        $user = Filament::auth()->user();
-
-        return $user instanceof User
-            && ($user->isSuperAdmin() || $user->isBrandManager());
-    }
 
     /**
      * @param  string|null  $portalUrl  Override the preview URL. Defaults to the Sales Portal home.
@@ -45,8 +32,6 @@ class SalesPortalPreviewModal extends Component
 
     public function open(): void
     {
-        abort_unless(static::canAccess(), 403);
-
         $this->isOpen = true;
 
         $this->dispatch('open-modal', id: self::MODAL_ID);
@@ -59,9 +44,6 @@ class SalesPortalPreviewModal extends Component
 
     public function render(): View
     {
-        return view('livewire.sales-portal-preview-modal', [
-            'canAccess' => static::canAccess(),
-        ]);
+        return view('livewire.sales-portal-preview-modal');
     }
 }
-

@@ -2,7 +2,6 @@
 
 namespace App\Providers\Filament;
 
-use App\Livewire\SalesPortalPreviewModal;
 use Filament\Http\Middleware\Authenticate;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -73,12 +72,10 @@ class AdminPanelProvider extends PanelProvider
                 Js::make('drag-to-scroll', public_path('js/filament-drag-scroll.js')),
                 Css::make('custom-scrollbar', public_path('css/custom-scrollbar.css')),
             ])
-            // "Live Sales Portal Preview" button in the topbar (Admins & Brand Managers only).
+            // "Live Sales Portal Preview" button in the topbar (every logged-in panel user).
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
-                fn (): string => SalesPortalPreviewModal::canAccess()
-                    ? Blade::render('@livewire(\App\Livewire\SalesPortalPreviewModal::class)')
-                    : '',
+                fn (): string => Blade::render('@livewire(\App\Livewire\SalesPortalPreviewModal::class)'),
             );
     }
 }
