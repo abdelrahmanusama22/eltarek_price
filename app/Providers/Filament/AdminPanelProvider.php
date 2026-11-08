@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Livewire\SalesPortalPreviewModal;
 use Filament\Http\Middleware\Authenticate;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -13,12 +14,14 @@ use Filament\PanelProvider;
 use Filament\Support\Assets\Css;
 use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
@@ -69,6 +72,13 @@ class AdminPanelProvider extends PanelProvider
             ->assets([
                 Js::make('drag-to-scroll', public_path('js/filament-drag-scroll.js')),
                 Css::make('custom-scrollbar', public_path('css/custom-scrollbar.css')),
-            ]);
+            ])
+            // "Live Sales Portal Preview" button in the topbar (Admins & Brand Managers only).
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
+                fn (): string => SalesPortalPreviewModal::canAccess()
+                    ? Blade::render('@livewire(\App\Livewire\SalesPortalPreviewModal::class)')
+                    : '',
+            );
     }
 }
