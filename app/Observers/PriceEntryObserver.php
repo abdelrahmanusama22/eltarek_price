@@ -27,17 +27,25 @@ class PriceEntryObserver
      */
     public function saving(PriceEntry $priceEntry): void
     {
+        // Skip automatic calculation if Manual Override is enabled for this vehicle
+        if ($priceEntry->is_manual_override) {
+            return;
+        }
+
         $officialPrice   = (float) $priceEntry->official_price;
         $executionPrice  = (float) $priceEntry->execution_price;
+        $strategy        = $priceEntry->pricing_strategy ?? 'standard';
 
-        $maxAllowedSellingPrice = $officialPrice * 1.05;
+        $maxAllowedSellingPrice = ($strategy === 'all_3m')
+            ? min($executionPrice, $officialPrice)
+            : ($officialPrice * 1.05);
 
         if ($executionPrice <= $maxAllowedSellingPrice) {
             $priceEntry->max_selling_price   = $executionPrice;
             $priceEntry->protection_3m_price = 0.00;
         } else {
             $priceEntry->max_selling_price   = $maxAllowedSellingPrice;
-            $priceEntry->protection_3m_price = $executionPrice - $maxAllowedSellingPrice;
+            $priceEntry->protection_3m_price = max(0.00, $executionPrice - $maxAllowedSellingPrice);
         }
     }
 

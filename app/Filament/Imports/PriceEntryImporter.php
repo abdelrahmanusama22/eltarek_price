@@ -43,6 +43,21 @@ class PriceEntryImporter extends Importer
                 })
                 ->rules(['nullable', 'numeric', 'min:0']),
 
+            ImportColumn::make('is_manual_override')
+                ->label('Manual Override')
+                ->guess(['is_manual_override', 'manual_override', 'Manual Override', 'تعديل يدوي'])
+                ->castStateUsing(function (mixed $state): bool {
+                    if (blank($state)) {
+                        return false;
+                    }
+                    if (is_bool($state)) {
+                        return $state;
+                    }
+                    $normalized = strtolower(trim((string) $state));
+                    return in_array($normalized, ['1', 'true', 'yes', 'y', 'نعم', 'on'], true);
+                })
+                ->rules(['nullable', 'boolean']),
+
             ImportColumn::make('hold_status')
                 ->label('Hold Status')
                 ->guess(['hold_status', 'crm_hold_status', 'Hold Status', 'CRM Hold Status'])
@@ -124,6 +139,20 @@ class PriceEntryImporter extends Importer
                         'فسدقى مط' => '#93C572',
                     ];
 
+                    if (str_starts_with(trim($state), '[') && is_array($json = json_decode($state, true))) {
+                        return array_map(function ($item) use ($colorMap) {
+                            return [
+                                'color_name' => $item['color_name'] ?? '',
+                                'color_code' => $item['color_code'] ?? ($colorMap[$item['color_name'] ?? ''] ?? '#FFFFFF'),
+                                'interior_color' => $item['interior_color'] ?? null,
+                                'roof_color' => $item['roof_color'] ?? null,
+                                'stock_count' => isset($item['stock_count']) && $item['stock_count'] !== '' ? (int)$item['stock_count'] : 0,
+                                'additional_price' => isset($item['additional_price']) ? \App\Services\NumericValueNormalizer::normalize($item['additional_price']) : null,
+                                'notes' => $item['notes'] ?? null,
+                            ];
+                        }, $json);
+                    }
+
                     $parsedColors = [];
                     $colorBlocks = array_map('trim', explode('|', $state));
 
@@ -135,6 +164,8 @@ class PriceEntryImporter extends Importer
                             if (empty($colorName)) continue;
 
                             $interior = null;
+                            $roofColor = null;
+                            $stockCount = null;
                             $adj = null;
                             $notes = null;
 
@@ -143,6 +174,10 @@ class PriceEntryImporter extends Importer
                                 foreach ($detailParts as $part) {
                                     if (str_starts_with($part, 'Interior:')) {
                                         $interior = trim(str_replace('Interior:', '', $part));
+                                    } elseif (str_starts_with($part, 'Roof:')) {
+                                        $roofColor = trim(str_replace('Roof:', '', $part));
+                                    } elseif (str_starts_with($part, 'Stock:')) {
+                                        $stockCount = trim(str_replace('Stock:', '', $part));
                                     } elseif (str_starts_with($part, 'Price Adj:')) {
                                         $adj = trim(str_replace('Price Adj:', '', $part));
                                     } elseif (str_starts_with($part, 'Notes:')) {
@@ -158,6 +193,8 @@ class PriceEntryImporter extends Importer
                                 'color_name' => $colorName,
                                 'color_code' => $colorHex,
                                 'interior_color' => $interior,
+                                'roof_color' => $roofColor,
+                                'stock_count' => $stockCount !== null && $stockCount !== '' ? (int)$stockCount : 0,
                                 'additional_price' => \App\Services\NumericValueNormalizer::normalize($adj),
                                 'notes' => $notes,
                             ];

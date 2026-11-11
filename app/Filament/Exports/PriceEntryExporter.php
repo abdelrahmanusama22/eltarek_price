@@ -20,6 +20,7 @@ class PriceEntryExporter extends Exporter
             ExportColumn::make('car.id')->label('Internal Car ID'),
             ExportColumn::make('official_price')->label('Official Price'),
             ExportColumn::make('execution_price')->label('Execution Price'),
+            ExportColumn::make('is_manual_override')->label('Manual Override'),
             ExportColumn::make('hold_status')->label('Hold Status'),
             ExportColumn::make('additional_info')->label('Additional Info'),
             ExportColumn::make('brand.name')->label('Brand'),
@@ -36,6 +37,12 @@ class PriceEntryExporter extends Exporter
                         $parts = [];
                         if (!empty($color['interior_color'])) {
                             $parts[] = 'Interior: ' . $color['interior_color'];
+                        }
+                        if (!empty($color['roof_color'])) {
+                            $parts[] = 'Roof: ' . trim($color['roof_color']);
+                        }
+                        if (isset($color['stock_count']) && $color['stock_count'] !== '' && $color['stock_count'] !== null) {
+                            $parts[] = 'Stock: ' . trim($color['stock_count']);
                         }
                         if (!empty($color['additional_price'])) {
                             // Ensure no trailing spaces mess up the number formatting
