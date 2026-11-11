@@ -26,7 +26,7 @@ class PriceEntriesExport implements FromQuery, WithHeadings, WithMapping, WithEv
         'year'             => ['crm' => 'year',             'col' => 'F'],
     ];
 
-    public function __construct(Builder $query = null)
+    public function __construct(?Builder $query = null)
     {
         $this->query = $query ?: PriceEntry::query()->with(['car', 'brand']);
     }
@@ -47,7 +47,9 @@ class PriceEntriesExport implements FromQuery, WithHeadings, WithMapping, WithEv
             'Year',
             'Official Price',
             'Execution Price',
+            'Manual Override',
             'Hold Status',
+            'Available Colors',
         ];
     }
 
@@ -73,8 +75,45 @@ class PriceEntriesExport implements FromQuery, WithHeadings, WithMapping, WithEv
             $record->year,
             $record->official_price,
             $record->execution_price,
+            $record->is_manual_override ? 'Yes' : 'No',
             $record->hold_status,
+            $this->serializeColors($record->available_colors),
         ];
+    }
+
+    protected function serializeColors(?array $colors): string
+    {
+        if (empty($colors) || !is_array($colors)) {
+            return '';
+        }
+
+        $formatted = array_map(function ($color) {
+            $name = $color['color_name'] ?? '';
+            $parts = [];
+            if (!empty($color['interior_color'])) {
+                $parts[] = 'Interior: ' . trim($color['interior_color']);
+            }
+            if (!empty($color['roof_color'])) {
+                $parts[] = 'Roof: ' . trim($color['roof_color']);
+            }
+            if (isset($color['stock_count']) && $color['stock_count'] !== '' && $color['stock_count'] !== null) {
+                $parts[] = 'Stock: ' . trim($color['stock_count']);
+            }
+            if (!empty($color['additional_price'])) {
+                $parts[] = 'Price Adj: ' . trim($color['additional_price']);
+            }
+            if (!empty($color['notes'])) {
+                $parts[] = 'Notes: ' . trim($color['notes']);
+            }
+
+            if (count($parts) > 0) {
+                return $name . ' (' . implode(' , ', $parts) . ' )';
+            }
+
+            return $name;
+        }, $colors);
+
+        return implode(' | ', $formatted);
     }
 
     public function registerEvents(): array

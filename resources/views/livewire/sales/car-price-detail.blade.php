@@ -164,6 +164,12 @@
                                             @if(!empty($color['interior_color']))
                                                 <span class="text-xs text-gray-500 font-normal">({{ $color['interior_color'] }})</span>
                                             @endif
+                                            @if(!empty($color['roof_color']))
+                                                <span class="text-xs font-normal text-amber-800 bg-amber-100/70 px-1.5 py-0.5 rounded border border-amber-200">Roof: {{ $color['roof_color'] }}</span>
+                                            @endif
+                                            @if(isset($color['stock_count']) && $color['stock_count'] !== null)
+                                                <span class="text-xs font-normal text-blue-800 bg-blue-100/70 px-1.5 py-0.5 rounded border border-blue-200">Qty: {{ $color['stock_count'] }}</span>
+                                            @endif
                                         </span>
                                         @if(isset($color['additional_price']) && floatval($color['additional_price']) != 0)
                                             @if($car->priceEntry->hold_status !== 'Wishing List')

@@ -32,11 +32,13 @@ class PriceEntry extends Model
         'warranty_info',
         'brochure_pdf',
         'last_updated_by',
+        'is_manual_override',
     ];
 
     protected function casts(): array
     {
         return [
+            'is_manual_override'  => 'boolean',
             // JSON offers column is auto-cast to/from PHP array
             'offers'              => 'array',
             'available_colors'    => 'array',

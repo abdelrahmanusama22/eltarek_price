@@ -167,26 +167,46 @@ class PriceEntryResource extends Resource
 
                 ])->columns(3),
 
-            // ── Computed Fields (Read-only) ───────────────────────────────────
+            // ── Computed Fields (Read-only or Manual Override) ─────────────────
             Schemas\Components\Section::make('Computed Outputs (Auto-Calculated)')
-                ->description('These fields are computed automatically by the Pricing Engine when you save.')
+                ->description('These fields are computed automatically by the Pricing Engine when you save, unless Manual Override is enabled.')
                 ->schema([
+
+                    Forms\Components\Toggle::make('is_manual_override')
+                        ->label('Enable Manual Override (تعديل يدوي للحسابات)')
+                        ->helperText('Enable to manually set retail price or 3M protection price without applying auto-calculated formulas.')
+                        ->default(false)
+                        ->live()
+                        ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                            if (! $state) {
+                                self::updateComputedPrices($get, $set);
+                            }
+                        })
+                        ->columnSpanFull(),
 
                     Forms\Components\TextInput::make('max_selling_price')
                         ->label('retail price "5%"')
                         ->prefix('EGP')
                         ->numeric()
-                        ->disabled()
-                        ->dehydrated(false)
-                        ->helperText('= MIN(execution_price, official_price × 1.05)'),
+                        ->minValue(0)
+                        ->disabled(fn (Get $get): bool => ! (bool) $get('is_manual_override'))
+                        ->dehydrated(fn (Get $get): bool => (bool) $get('is_manual_override'))
+                        ->helperText(fn (Get $get): string => (bool) $get('is_manual_override')
+                            ? 'Manual Override Active: enter custom retail price.'
+                            : '= MIN(execution_price, official_price × 1.05)'
+                        ),
 
                     Forms\Components\TextInput::make('protection_3m_price')
                         ->label('3M Protection Price')
                         ->prefix('EGP')
                         ->numeric()
-                        ->disabled()
-                        ->dehydrated(false)
-                        ->helperText('= MAX(0, execution_price − official_price × 1.05)'),
+                        ->minValue(0)
+                        ->disabled(fn (Get $get): bool => ! (bool) $get('is_manual_override'))
+                        ->dehydrated(fn (Get $get): bool => (bool) $get('is_manual_override'))
+                        ->helperText(fn (Get $get): string => (bool) $get('is_manual_override')
+                            ? 'Manual Override Active: enter custom 3M protection price.'
+                            : '= MAX(0, execution_price − official_price × 1.05)'
+                        ),
 
                 ])->columns(2),
 
@@ -407,7 +427,20 @@ class PriceEntryResource extends Resource
                                     ->placeholder('Use - for discount, + for extra')
                                     ->suffix('EGP')
                                     ->nullable()
-                                    ->columnSpan(5),
+                                    ->columnSpan(3),
+                                Schemas\Components\Grid::make(2)
+                                    ->schema([
+                                        Forms\Components\TextInput::make('roof_color')
+                                            ->label('Roof Color (Two-Tone)')
+                                            ->placeholder('e.g., Black Roof')
+                                            ->nullable(),
+                                        Forms\Components\TextInput::make('stock_count')
+                                            ->label('Stock Quantity')
+                                            ->numeric()
+                                            ->default(0)
+                                            ->minValue(0),
+                                    ])
+                                    ->columnSpanFull(),
                                 Forms\Components\Textarea::make('notes')
                                     ->label('ملاحظات / إقرار (Notes)')
                                     ->placeholder('Enter any specific issues, scratches, or required declarations for this color...')
@@ -417,7 +450,9 @@ class PriceEntryResource extends Resource
                             ];
                         })
                         ->columns(12)
-                        ->itemLabel(fn (array $state): ?string => $state['color_name'] ?? null)
+                        ->itemLabel(fn (array $state): ?string => ($state['color_name'] ?? null)
+                            ? ($state['color_name'] . (!empty($state['roof_color']) ? ' + ' . $state['roof_color'] : '') . (isset($state['stock_count']) && $state['stock_count'] !== '' ? ' (Qty: ' . $state['stock_count'] . ')' : ''))
+                            : null)
                         ->collapsible()
                         ->addActionLabel('Add Color')
                 ]),
@@ -507,6 +542,16 @@ Tables\Columns\TextInputColumn::make('execution_price')
                     ->boolean()
                     ->toggleable(),
 
+                Tables\Columns\IconColumn::make('is_manual_override')
+                    ->label('Manual Override')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-wrench-screwdriver')
+                    ->falseIcon('heroicon-o-calculator')
+                    ->trueColor('warning')
+                    ->falseColor('gray')
+                    ->tooltip(fn (PriceEntry $record): string => $record->is_manual_override ? 'Manual Override Active' : 'Auto-Calculated')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('updated_at')
                     ->label('Last Updated')
                     ->dateTime()
@@ -526,6 +571,12 @@ Tables\Columns\TextInputColumn::make('execution_price')
                         'Wishing List' => 'Wishing List',
                         'STOP'         => 'STOP',
                     ]),
+
+                Tables\Filters\TernaryFilter::make('is_manual_override')
+                    ->label('Manual Override')
+                    ->placeholder('All Entries')
+                    ->trueLabel('Manual Overrides Only')
+                    ->falseLabel('Auto-Calculated Only'),
             ])
             ->headerActions([
                 ImportAction::make()
@@ -645,6 +696,19 @@ Tables\Columns\TextInputColumn::make('execution_price')
                                         ->suffix('EGP')
                                         ->nullable()
                                         ->columnSpan(3),
+                                    Schemas\Components\Grid::make(2)
+                                        ->schema([
+                                            Forms\Components\TextInput::make('roof_color')
+                                                ->label('Roof Color (Two-Tone)')
+                                                ->placeholder('e.g., Black Roof')
+                                                ->nullable(),
+                                            Forms\Components\TextInput::make('stock_count')
+                                                ->label('Stock Quantity')
+                                                ->numeric()
+                                                ->default(0)
+                                                ->minValue(0),
+                                        ])
+                                        ->columnSpanFull(),
                                     Forms\Components\Textarea::make('notes')
                                         ->label('ملاحظات / إقرار (Notes)')
                                         ->placeholder('Enter any specific issues, scratches, or required declarations for this color...')
@@ -654,7 +718,9 @@ Tables\Columns\TextInputColumn::make('execution_price')
                                 ];
                             })
                             ->columns(12)
-                            ->itemLabel(fn (array $state): ?string => $state['color_name'] ?? null)
+                            ->itemLabel(fn (array $state): ?string => ($state['color_name'] ?? null)
+                            ? ($state['color_name'] . (!empty($state['roof_color']) ? ' + ' . $state['roof_color'] : '') . (isset($state['stock_count']) && $state['stock_count'] !== '' ? ' (Qty: ' . $state['stock_count'] . ')' : ''))
+                            : null)
                             ->collapsible()
                             ->addActionLabel('Add Color')
                     ])
@@ -861,6 +927,11 @@ Tables\Columns\TextInputColumn::make('execution_price')
 
     private static function updateComputedPrices(Get $get, Set $set): void
     {
+        // Never overwrite custom values when Manual Override is enabled
+        if ((bool) $get('is_manual_override')) {
+            return;
+        }
+
         $official = (float) $get('official_price');
         $execution = (float) $get('execution_price');
         $strategy = $get('pricing_strategy') ?? 'standard';
