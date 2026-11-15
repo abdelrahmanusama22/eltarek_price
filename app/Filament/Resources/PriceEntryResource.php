@@ -427,7 +427,7 @@ class PriceEntryResource extends Resource
                                     ->placeholder('Use - for discount, + for extra')
                                     ->suffix('EGP')
                                     ->nullable()
-                                    ->columnSpan(3),
+                                    ->columnSpan(5),
                                 Schemas\Components\Grid::make(2)
                                     ->schema([
                                         Forms\Components\TextInput::make('roof_color')
