@@ -319,15 +319,40 @@ class PriceEntryResource extends Resource
                         ->label('Warranty')
                         ->placeholder('e.g., 7 Years or 150,000 KM')
                         ->columnSpanFull(),
-                   Forms\Components\FileUpload::make('brochure_pdf')
-    ->label('Brochure (PDF)')
-    ->acceptedFileTypes(['application/pdf'])
-    ->disk('public')
-    ->directory('price_entries/brochures')
-    ->visibility('public')
-    ->preserveFilenames()
-    ->maxSize(51200) // التعديل هنا: السماح برفع ملفات حتى 50 ميجابايت
-    ->columnSpanFull(),
+                    Forms\Components\FileUpload::make('brochure_pdf')
+                        ->label('Brochure (PDF)')
+                        ->acceptedFileTypes(['application/pdf'])
+                        ->disk('public')
+                        ->directory('price_entries/brochures')
+                        ->visibility('public')
+                        ->preserveFilenames()
+                        ->maxSize(51200)
+                        ->columnSpanFull(),
+                ]),
+
+            // ── Vehicle Photo Gallery ──────────────────────────────────────────
+            Schemas\Components\Section::make('Vehicle Photo Gallery (معرض الصور)')
+                ->description('Upload multiple photos for this vehicle. All images are automatically compressed and converted to modern WebP format for fast loading on the Sales Portal.')
+                ->collapsible()
+                ->schema([
+                    Forms\Components\FileUpload::make('images')
+                        ->label('Gallery Photos (صور المعرض)')
+                        ->multiple()
+                        ->image()
+                        ->disk('public')
+                        ->directory('car-gallery')
+                        ->visibility('public')
+                        ->reorderable()
+                        ->appendFiles()
+                        ->openable()
+                        ->downloadable()
+                        ->imageEditor()
+                        ->maxSize(20480)
+                        ->helperText('Upload vehicle images (JPG, PNG, WebP). Files are automatically compressed and converted into .webp.')
+                        ->columnSpanFull()
+                        ->saveUploadedFileUsing(function (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string {
+                            return \App\Services\ImageWebpConverter::convertAndStore($file, 'car-gallery', 'public');
+                        }),
                 ]),
 
             // ── Available Colors ──────────────────────────────────────────────

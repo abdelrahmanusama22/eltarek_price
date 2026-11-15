@@ -36,10 +36,34 @@
 @else
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @foreach($priceEntries as $entry)
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow relative">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow relative group">
                 <!-- Accent Line -->
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary-light"></div>
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary to-primary-light z-10"></div>
                 
+                @if(!empty($entry->images) && is_array($entry->images) && count($entry->images) > 0)
+                    <div class="relative w-full h-44 bg-gray-950 overflow-hidden">
+                        @php
+                            $firstImg = $entry->images[0];
+                            $firstImgUrl = (str_starts_with($firstImg, 'http') || str_starts_with($firstImg, '//'))
+                                ? $firstImg
+                                : \Illuminate\Support\Facades\Storage::disk('public')->url($firstImg);
+                        @endphp
+                        {{-- Ambient backdrop --}}
+                        <img src="{{ $firstImgUrl }}" alt="" class="absolute inset-0 w-full h-full object-cover filter blur-md opacity-35 scale-125 pointer-events-none" aria-hidden="true">
+                        {{-- Crisp foreground --}}
+                        <img src="{{ $firstImgUrl }}" alt="{{ $entry->car->model_sales_code }}" loading="lazy" class="relative z-10 w-full h-full object-contain p-2 group-hover:scale-105 transition-transform duration-300">
+                        @if(count($entry->images) > 1)
+                            <span class="absolute bottom-2 right-2 z-20 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white bg-black/60 backdrop-blur-sm flex items-center gap-1 border border-white/10">
+                                <svg class="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                                </svg>
+                                <span>{{ count($entry->images) }} Photos</span>
+                            </span>
+                        @endif
+                    </div>
+                @endif
+
                 <div class="p-6 flex-grow mt-1">
                     <div class="flex justify-between items-start mb-4">
                         <div>

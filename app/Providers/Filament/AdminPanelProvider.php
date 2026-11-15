@@ -72,10 +72,23 @@ class AdminPanelProvider extends PanelProvider
                 Js::make('drag-to-scroll', public_path('js/filament-drag-scroll.js')),
                 Css::make('custom-scrollbar', public_path('css/custom-scrollbar.css')),
             ])
-            // "Live Sales Portal Preview" button in the topbar (every logged-in panel user).
+            // Topbar quick access: "Manage Bulk Offers" and "Live Sales Portal Preview"
             ->renderHook(
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
-                fn (): string => Blade::render('@livewire(\App\Livewire\SalesPortalPreviewModal::class)'),
+                fn (): string => Blade::render('
+                    <div class="flex items-center gap-1">
+                        <x-filament::icon-button
+                            icon="heroicon-m-ticket"
+                            icon-size="lg"
+                            color="gray"
+                            tag="a"
+                            href="{{ \App\Filament\Resources\BulkOfferResource::getUrl() }}"
+                            label="Manage Bulk Offers"
+                            tooltip="Manage Bulk Offers"
+                        />
+                        @livewire(\App\Livewire\SalesPortalPreviewModal::class)
+                    </div>
+                '),
             );
     }
 }

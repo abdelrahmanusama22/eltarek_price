@@ -74,9 +74,12 @@
     @else
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             
-            <!-- Left Column: Breakdown -->
+            <!-- Left Column: Gallery & Breakdown -->
             <div class="lg:col-span-2 space-y-6">
                 
+                <!-- Vehicle Photo Gallery -->
+                <x-sales.vehicle-gallery :car="$car" />
+
                 <!-- Price Breakdown -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
