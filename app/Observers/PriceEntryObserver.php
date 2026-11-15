@@ -27,6 +27,11 @@ class PriceEntryObserver
      */
     public function saving(PriceEntry $priceEntry): void
     {
+        // Auto-convert any gallery images to compressed WebP format
+        if ($priceEntry->isDirty('images') && is_array($priceEntry->images)) {
+            $priceEntry->images = \App\Services\ImageWebpConverter::convertMultiple($priceEntry->images);
+        }
+
         // Skip automatic calculation if Manual Override is enabled for this vehicle
         if ($priceEntry->is_manual_override) {
             return;

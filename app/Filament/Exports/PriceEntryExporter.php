@@ -67,6 +67,13 @@ class PriceEntryExporter extends Exporter
             ExportColumn::make('model_name')->label('Model Name'),
             ExportColumn::make('model_sales_code')->label('Model Sales Code'),
             ExportColumn::make('year')->label('Year'),
+            ExportColumn::make('images')
+                ->label('Gallery Images')
+                ->state(function (PriceEntry $record) {
+                    return !empty($record->images) && is_array($record->images)
+                        ? implode(' | ', $record->images)
+                        : '';
+                }),
         ];
     }
 

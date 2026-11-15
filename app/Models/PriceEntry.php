@@ -31,6 +31,7 @@ class PriceEntry extends Model
         'available_colors',
         'warranty_info',
         'brochure_pdf',
+        'images',
         'last_updated_by',
         'is_manual_override',
     ];
@@ -43,6 +44,7 @@ class PriceEntry extends Model
             'offers'              => 'array',
             'available_colors'    => 'array',
             'ignored_crm_updates' => 'array',
+            'images'              => 'array',
             'year'                => 'integer',
             'official_price'      => 'decimal:2',
             'execution_price'     => 'decimal:2',
@@ -218,5 +220,19 @@ class PriceEntry extends Model
         }
         
         return $mismatches;
+    }
+
+    /**
+     * Returns an array of public URLs for all gallery images.
+     */
+    public function getGalleryUrlsAttribute(): array
+    {
+        if (empty($this->images) || !is_array($this->images)) {
+            return [];
+        }
+
+        return array_values(array_map(function ($path) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        }, $this->images));
     }
 }

@@ -222,6 +222,21 @@ class PriceEntryImporter extends Importer
                 ->label('Year')
                 ->castStateUsing(fn (mixed $state): mixed => \App\Services\NumericValueNormalizer::normalize($state))
                 ->rules(['nullable', 'integer']),
+
+            ImportColumn::make('images')
+                ->label('Gallery Images')
+                ->guess(['images', 'gallery', 'photos', 'Gallery Images', 'صور المعرض'])
+                ->castStateUsing(function (mixed $state): ?array {
+                    if (blank($state)) {
+                        return null;
+                    }
+                    if (is_array($state)) {
+                        return $state;
+                    }
+                    $paths = array_map('trim', preg_split('/[|,]/', (string) $state));
+                    return array_values(array_filter($paths));
+                })
+                ->rules(['nullable']),
         ];
     }
 
